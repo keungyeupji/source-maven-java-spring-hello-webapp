@@ -7,12 +7,13 @@ pipeline {
                   stage('Checkout'){
                            steps{
                                     git branch: 'main'
-                                    url: https://github.com/keungyeupji/source-maven-java-spring-hello-webapp.git
+                                    url: 'https://github.com/keungyeupji/source-maven-java-spring-hello-webapp.git'
                            }
                   }
                   stage('Build'){
                            steps{
                                     sh 'mvn clean package' 
+			}
                   }
                   stage('Deploy'){
                            steps{
