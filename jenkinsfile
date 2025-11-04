@@ -1,7 +1,7 @@
 pipeline {
         agent any
         triggers {
-                 pollSCM("Min Hour Day Month Days")
+                 pollSCM("* * * * *")
         }
         stages {
                   stage('Checkout'){
