@@ -1,25 +1,77 @@
 pipeline {
-        agent any
-        triggers {
-                 pollSCM("* * * * *")
-        }
-        stages {
-                  stage('Checkout'){
-                           steps{
-                                    git branch: 'main',
-                                    url: 'https://github.com/keungyeupji/source-maven-java-spring-hello-webapp.git'
-                           }
-                  }
-                  stage('Build'){
-                           steps{
-                                    sh 'mvn clean package' 
-			}
-                  }
-                  stage('Deploy'){
-                           steps{
-                                    deploy adapters: [tomcat9(credentialsId: 'tomcat-manager', url: 'http://192.168.56.102:8080')], contextPath: null, war: 'target/hello-world.war'
-                           }
-                  }
+  agent any
 
-        }
+  // 1분마다 SCM 변경 감지 (원치 않으면 제거하세요)
+  triggers {
+    pollSCM('* * * * *')
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  environment {
+    // 테스트 실패 시 빌드 실패로 처리 (원하면 true/false 조절)
+    MAVEN_OPTS = '-Dmaven.test.failure.ignore=false'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        // Pipeline script from SCM 사용 시, scm 핸들 사용이 가장 안전
+        checkout scm
+        // 또는 명시형:
+        // git branch: 'main',
+        //     url: 'https://github.com/keungyeupji/source-maven-java-spring-hello-webapp.git'
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh 'mvn -B clean package'
+      }
+    }
+
+    stage('Archive WAR') {
+      steps {
+        // 산출물(워 파일) 보관
+        archiveArtifacts artifacts: 'target/*.war', fingerprint: true
+      }
+    }
+
+    stage('Deploy to Tomcat') {
+      // main 브랜치일 때만 배포 (원하면 제거)
+      when { branch 'main' }
+      steps {
+        // Jenkins "Deploy to container" 플러그인 사용
+        // credentialsId: Jenkins에 등록한 Tomcat Manager 자격증명 ID
+        // url: Tomcat Manager Base URL
+        // war: 배포할 war 파일 경로
+        // contextPath: 톰캣 컨텍스트명(예: hello-world). 루트 배포는 '' (빈 문자열)
+        deploy adapters: [
+          tomcat9(
+            credentialsId: 'tomcat-manager',
+            url: 'http://192.168.56.102:8080'
+          )
+        ],
+        war: 'target/hello-world.war',
+        contextPath: 'hello-world'
+      }
+    }
+  }
+
+  post {
+    success {
+      echo 'Build & Deploy successful 🎉'
+    }
+    failure {
+      echo 'Build or Deploy failed ❌'
+    }
+    always {
+      // 필요 시 junit 결과, 로그 업로드 등 추가 가능
+      // junit 'target/surefire-reports/*.xml'
+    }
+  }
 }
+
